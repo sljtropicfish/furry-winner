@@ -1,0 +1,358 @@
+#!/bin/bash
+	#Name: Lijie Song
+	#Program 1
+	#10/04/2019
+
+##############################################################################################################
+# matrix dims [MATRIX]
+# Prints error message to stderr, nothing to stdout and return value != 0 if:
+# 	Argument count is greater than 1 (e.g. `matrix dims m1 m2`).
+#	Argument count is 1 but the file named by argument 1 is not readable (e.g. `matrix dims no_such_file`).
+# Otherwise, prints "ROWS COLS" (Space separated!) to stdout, nothing to stderr, and returns 0.
+##############################################################################################################
+dims(){
+
+        #if argument 1 is not readable, output error to stderr and return 1
+        #print out error message to stdout
+        if [ ! -r $1 ]
+        then
+                echo "File is not readable" >&2
+                exit 1
+        fi
+
+        #rowNum = the number of lines in the matrix
+        rowNum="$(cat $1 | wc -l)"
+        #colNum = the number of words in each line
+        colNum="$(head -1 $1 | wc -w)"
+
+        echo "$rowNum $colNum"
+
+}
+
+
+##############################################################################################################
+# matrix transpose [MATRIX]
+# Prints error message to stderr, nothing to stdout and return value != 0 if:
+# Argument count is greater than 1 (e.g. `matrix transpose m1 m2`).
+# Argument count is 1 but the file named by argument 1 is not readable (e.g. `matrix transpose no_such_file`).
+# Otherwise, prints the transpose of the input, in a valid matrix format to stdout, nothing to stderr, and returns 0.
+##############################################################################################################
+transpose(){
+
+        #if argument 1 is not readable, output error to stderr and return 1
+	#print out error message to stdout
+        if [ ! -r $1 ]
+        then
+                echo "File is not readable" >&2
+                exit 1
+        fi
+	#colNum = the nuber of words in the first line
+	colNum="$( head -1 $1 | wc -w)"
+
+	#use for loop to cut by filed of numbers in each column
+	#and then paste them to the stdout, each number is seperated by tab
+	#each column is seperated by newline
+	for ((i=1; i<=$colNum; i++))
+	do
+		cut  -f "$i" "$1" | paste -s
+	done
+
+}
+
+##############################################################################################################
+# matrix mean [MATRIX]
+# Prints error message to stderr, nothing to stdout and return value != 0 if:
+# Argument count is greater than 1 (e.g. `matrix mean m1 m2`).
+# Argument count is 1 but the file named by argument 1 is not readable (e.g. `matrix mean no_such_file`).
+# Otherwise, prints a row vector mean of the input matrix, in a valid matrix format to stdout, nothing to stderr,
+#     and returns 0. All values must round to the nearest integer, with ***.5 values rounded away from zero.
+##############################################################################################################
+mean(){
+
+        #if argument 1 is not readable, output error to stderr and return 1
+        #print out error message to stdout
+	if [ ! -r $1 ]
+        then
+                echo "File is not readable" >&2
+                exit 1
+        fi
+
+	#rowNum = the number of lines in the matrix
+        rowNum="$(cat $1 | wc -l)"
+        #colNum = the number of words in each line
+        colNum="$(head -1 $1 | wc -w)"
+
+	#use for loop to caculate the mean for each column
+	#and print the result out per the requirement
+	for(( i=1; i<=$colNum; i++))
+	do
+		num=0
+		sum=0
+
+		#write each column of numbers to file meanPerCol in order
+		#one number per line
+		cut -f $i $1 > tempMeanPerCol
+
+		#read each number (each line) from file tempMeanPerCol and calculate the sum
+		while read num
+		do
+			sum=$(( $sum + $num ))
+
+		done < tempMeanPerCol
+
+		#calculate the mean for sum
+		mean=$(( ($sum + ($rowNum /2) * ( (sum>0)*2-1))/ $rowNum))
+
+		#write the mean of each column to the terminal
+		#A tab shoule be followed by each mean value except for the last one
+		if [ $i -lt $colNum ]
+		then
+			echo -n -e "$mean\t"
+		else
+			echo -n -e "$mean"
+		fi
+	done
+	echo
+	rm tempMeanPerCol	#clean the temp file
+
+}
+
+
+##############################################################################################################
+# matrix add MATRIX_LEFT MATRIX_RIGHT
+# Prints error message to stderr, nothing to stdout and return value != 0 if:
+# Argument count does not equal 2 (e.g. `matrix add m1 m2 m3` or `matrix add m1`).
+# Argument count is 2 but the file named by either argument is not readable (e.g. `matrix add m1 no_such_file`).
+# The dimensions of the input matrices do not allow them to be added together following the rules of matrix addition.
+# Otherwise, prints the sum of both matrices, in a valid matrix format to stdout, nothing to stderr, and returns 0.
+##############################################################################################################
+add(){
+
+	#if argument 1 or 2 is not readable, output error to stderr and return 1
+        #print out error message to stdout
+        if [ ! -r $1 ] || [ ! -r $2 ]
+        then
+                echo "File is not readable" >&2
+                exit 1
+	fi
+
+	#calculate the number of rows for $1 and $2
+	rowNum1="$(cat $1 | wc -l)"
+	rowNum2="$(cat $2 | wc -l)"
+	#calculate the number of columns for $1 and $2
+	colNum1="$(head -1 $1 | wc -w)"
+	colNum2="$(head -1 $2 | wc -w)"
+
+	#check if the dimenstions of the input matrices allow them to be added together
+	if [ $rowNum1 -ne $rowNum2 ] || [ $colNum1 -ne $colNum2 ]
+	then
+		echo "The dimensions of the two matrices do not allow them to be added together" >&2
+		exit 1
+	fi
+
+
+	#write one number per line for each input file and save them to temp file seperately
+	#to make the addition process easier
+	cat $1 | tr '\t' '\n' > tempFile1
+	cat $2 | tr '\t' '\n' > tempFile2
+
+	countPerLine=0  #record the number of numbers in the line
+
+	#read one integer from each file every time
+	#add them up and print the result per the requirement
+	while read num1 && read num2 <&3
+	do
+		#add the corresponding two numbers
+		sum=$(( num1 + num2 ))
+
+		#increment the count of numbers in the line
+		countPerLine=$(( $countPerLine + 1 ))
+
+		#the format of the result should be colNum1 numbers eachline and seperated by a tab
+		#the last number of each line should be followed by \n not \t
+		if [ "$countPerLine" -lt "$colNum1"  ]
+		then
+			echo -n -e "$sum\t"
+		else
+			echo "$sum"
+			countPerLine=0
+		fi
+	done <tempFile1 3<tempFile2
+
+	rm tempFile1 tempFile2		#clean the temp files
+}
+
+##############################################################################################################
+# matrix multiply MATRIX_LEFT MATRIX_RIGHT
+# Prints error message to stderr, nothing to stdout and return value != 0 if:
+# Argument count does not equal 2 (e.g. `matrix multiply m1 m2 m3` or `matrix multiply m1`).
+# Argument count is 2 but the file named by either argument is not readable (e.g. `matrix multiply m1 no_such_file`).
+# The dimensions of the input matrices do not allow them to be multiplied together following the rules of matrix multiplication.
+# Otherwise, prints the product of both matrices, with the first argument as the left matrix and the second argument as the right matrix, in a valid matrix format to stdout, nothing to stderr, and returns 0. (`matrix multiply A B` should return A*B, not B*A)
+##############################################################################################################
+multiply(){
+	#if argument 1 or 2 is not readable, output error to stderr and return 1
+        #print out error message to stdout
+        if [ ! -r $1 ] || [ ! -r $2 ]
+        then
+                echo "File is not readable" >&2
+                exit 1
+        fi
+
+        #calculate the number of rows for $1 and $2
+        rowNum1="$(cat $1 | wc -l)"
+        rowNum2="$(cat $2 | wc -l)"
+        #calculate the number of columns for $1 and $2
+        colNum1="$(head -1 $1 | wc -w)"
+        colNum2="$(head -1 $2 | wc -w)"
+
+        #check if the dimenstions of the input matrices allow them to be multiplied together
+        if [ $colNum1 -ne $rowNum2 ]
+        then
+                echo "The dimensions of the two matrices do not allow them to be multiplied together" >&2
+                exit 1
+        fi
+
+	#read one line from $1 and then multiply by each column from &2 per time
+	while read rowFromF1
+	do
+		#each number in the line will be seperated by newline instead of tab
+		#and save in file tempRow. This will make the caculation easier
+		echo "$rowFromF1" | tr '\t' '\n' > tempRow
+
+		#use for loop to write each column of numbers from $2 to file tempCol
+		#and then do the multiplication
+		for(( i=1; i<=$colNum2; i++  ))
+		do
+			sum=0
+
+			cut -f "$i" "$2" > tempCol
+
+			#multiply each corresponding two numbers and then add them up
+			while read num1 && read num2 <&3
+			do
+				mult=$(( num1 * num2 ))
+				sum=$(( sum + mult ))
+			done <tempRow 3<tempCol
+
+			#append each sum result seperated by tab to file tempRowFile
+			echo -n -e "$sum\t" >> tempRowFile
+
+		done
+
+		#remove the last tab character from the content in tempRowFile
+		read line < tempRowFile
+
+		echo "$line"
+
+		rm tempRowFile	#clean tempRowFile after reading each line from $1
+	done < $1
+
+	rm tempRow tempCol	#clean the temp files
+}
+
+
+####################################################################################################
+####################################################################################################
+echo
+dims "/Users/lijiesong/Desktop/m1"
+#transpose "/Users/lijiesong/Desktop/m1"
+#mean "/Users/lijiesong/Desktop/m1"
+#add "/Users/lijiesong/Desktop/m1" "/Users/lijiesong/Desktop/m2"
+multiply "/Users/lijiesong/Desktop/m1" "/Users/lijiesong/Desktop/m2"
+#check the $1 and run the corresponding function
+if [ "$1" == "dims" ]
+then
+	datafilepath="datafile$$"
+	#if the matrix provided via stdin, dims the file from stdin
+	if [ "$#" =  "1" ]
+	then
+		cat > "$datafilepath"
+		dims datafile$$
+		rm -f datafile$$
+	#if the matris is passed as argument, dims the argument
+	elif [ "$#" = "2" ]
+	then
+		datafilepath=$2
+		 $1 "${@:2}"
+	#else output error to stderr and return 1
+        #print out error message to stdout
+	else
+               	echo "Argument count is greater than 1" >&2
+               	exit 1
+ 	fi
+
+elif [ "$1" == "transpose" ]
+then
+	datafilepath="datafile$$"
+	#if the matrix provided via stdin, dims the file from stdin
+        if [ "$#" = "1" ]
+	then
+		cat > "$datafilepath"
+		transpose datafile$$
+                rm -f datafile$$
+	#if the matris is passed as argument, dims the argument
+        elif [ "$#" = "2" ]
+        then
+                datafilepath=$2
+                $1 "${@:2}"
+	#else output error to stderr and return 1
+        #print out error message to stdout
+	else
+                echo "Argument count is greater than 1" >&2
+                exit 1
+        fi
+
+elif [ "$1" == "mean" ]
+then
+        datafilepath="datafile$$"
+        #if the matrix provided via stdin, dims the file from stdin
+	if [ "$#" = "1" ]
+        then
+	        cat > "$datafilepath"
+		mean datafile$$
+        	rm -f datafile$$
+	#if the matris is passed as argument, dims the argument
+        elif [ "$#" = "2" ]
+        then
+                datafilepath=$2
+                $1 "${@:2}"
+	#else output error to stderr and return 1
+        #print out error message to stdout
+	else
+                echo "Argument count is greater than 1" >&2
+                exit 1
+        fi
+
+elif [ "$1" == "add" ]
+then
+	if [ "$#" = "3" ]
+	then
+		$1 "${@:2}"
+	#else output error to stderr and return 1
+        #print out error message to stdout
+	else
+		echo "Argument count is not 2" >&2
+               	exit 1
+	fi
+
+elif [ "$1" == "multiply" ]
+then
+	if [ "$#" = "3" ]
+	then
+		$1 "${@:2}"
+        #else output error to stderr and return 1
+        #print out error message to stdout
+	else
+                echo "Argument count is not 2" >&2
+                exit 1
+        fi
+else	#if got bad command, output error to stderr and return 1
+        #print out error message to stdout
+	echo "bad command" >&2
+	exit 1
+fi
+
+
+
+exit 0
